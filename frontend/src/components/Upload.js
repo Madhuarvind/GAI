@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import config from '../config';
 
 const UploadComponent = ({ onUploadSuccess }) => {
   const [file, setFile] = useState(null);
+  const [jobDescription, setJobDescription] = useState('');
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState('');
   const [isError, setIsError] = useState(false);
@@ -23,6 +25,10 @@ const UploadComponent = ({ onUploadSuccess }) => {
     }
   };
 
+  const handleJobDescriptionChange = (event) => {
+    setJobDescription(event.target.value);
+  };
+
   const handleUpload = async () => {
     if (!file) {
       setMessage('Please select a file first');
@@ -35,9 +41,12 @@ const UploadComponent = ({ onUploadSuccess }) => {
 
     const formData = new FormData();
     formData.append('file', file);
+    if (jobDescription.trim()) {
+      formData.append('job_description', jobDescription.trim());
+    }
 
     try {
-      const response = await axios.post('http://localhost:5000/api/upload', formData, {
+      const response = await axios.post(`${config.API_BASE_URL}/api/upload`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -83,6 +92,21 @@ const UploadComponent = ({ onUploadSuccess }) => {
               <div className="form-text">
                 Supported formats: PDF, DOC, DOCX (Max 16MB)
               </div>
+            </div>
+
+            <div className="mb-3">
+              <label htmlFor="jobDescription" className="form-label">
+                Job Description (optional)
+              </label>
+              <textarea
+                className="form-control"
+                id="jobDescription"
+                rows={5}
+                placeholder="Enter job description to match against resumes"
+                value={jobDescription}
+                onChange={handleJobDescriptionChange}
+                disabled={uploading}
+              />
             </div>
 
             {file && (
