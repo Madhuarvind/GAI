@@ -4,7 +4,13 @@ import os
 from werkzeug.utils import secure_filename
 from services.resume_parser import extract_text_from_file
 from services.watson_service import analyze_resume_with_watson
-from services.database import save_candidate, get_all_candidates
+from services.database import save_candidate, get_all_candidates, get_candidate_by_id
+from services.hr_integration import (
+    get_supported_hr_systems,
+    send_candidate_to_hr,
+    validate_hr_system_connection,
+    export_candidate_data
+)
 from services.bias_detection import analyze_resume_bias, create_blind_version
 from services.advanced_ranking import analyze_advanced_ranking
 import uuid
@@ -88,8 +94,8 @@ def upload_resume():
                 'bias_analysis': bias_analysis,
                 'removed_personal_info': removed_info,
                 'profile_enrichment': profile_enrichment,
-                'jd_match_result': jd_match_result,
-                'advanced_ranking': advanced_ranking
+            'jd_match_result': jd_match_result,
+            'advanced_ranking': None
             }
 
             # Example: Send shortlisted candidate to HR system (e.g., Workday)

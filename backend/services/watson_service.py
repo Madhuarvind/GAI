@@ -1,52 +1,38 @@
 import os
 import json
-from ibm_watson import AssistantV2
-from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
 from dotenv import load_dotenv
+from openai import OpenAI
 
 # Load environment variables
 load_dotenv()
 
-class WatsonResumeAnalyzer:
-    def __init__(self):
-        self.api_key = os.getenv('WATSONX_API_KEY')
-        self.url = os.getenv('WATSONX_URL')
-        self.project_id = os.getenv('WATSONX_PROJECT_ID')
-        
-        if not all([self.api_key, self.url, self.project_id]):
-            raise Exception("Watsonx.ai credentials not configured. Please set WATSONX_API_KEY, WATSONX_URL, and WATSONX_PROJECT_ID environment variables.")
-        
-        self.authenticator = IAMAuthenticator(self.api_key)
-        self.assistant = AssistantV2(
-            version='2023-06-15',
-            authenticator=self.authenticator
-        )
-        self.assistant.set_service_url(self.url)
-    
-    def analyze_resume(self, resume_text, job_description=None):
-        """Analyze resume using Watsonx.ai LLM"""
-        
-        # Default prompt for resume analysis
-        prompt = f"""
-        You are an expert HR recruiter. Analyze the following resume and provide a comprehensive assessment.
+client = OpenAI()
 
-        RESUME TEXT:
-        {resume_text[:4000]}  # Limit text to avoid token limits
+def analyze_resume_with_watson(resume_text, job_description=None):
+    """
+    Analyze resume using OpenAI API.
+    """
+    prompt = f"""
+    You are an expert HR recruiter. Analyze the following resume and provide a comprehensive assessment.
 
-        Please analyze this resume and provide:
-        1. Years of experience (numeric value)
-        2. Key skills and technologies (comma-separated list)
-        3. Previous job roles and companies
-        4. Education background
-        5. Certifications
-        6. Projects and achievements
-        7. Identify hidden skills or related skills (e.g., if 'TensorFlow' is mentioned, infer 'Deep Learning')
-        8. Overall relevance score (0-100) for a software engineering role
-        9. Categorization: "Highly Qualified", "Qualified", or "Not a Fit"
-        10. Brief summary of candidate's strengths and weaknesses
+    RESUME TEXT:
+    {resume_text[:4000]}  # Limit text to avoid token limits
 
-        Format your response as valid JSON with these exact keys:
-        {{
+    Please analyze this resume and provide:
+    1. Years of experience (numeric value)
+    2. Key skills and technologies (comma-separated list)
+    3. Previous job roles and companies
+    4. Education background
+    5. Certifications
+    6. Projects and achievements
+    7. Identify hidden skills or related skills (e.g., if 'TensorFlow' is mentioned, infer 'Deep Learning')
+    8. Overall relevance score (0-100) for a software engineering role
+    9. Categorization: "Highly Qualified", "Qualified", or "Not a Fit"
+    10. Brief summary of candidate's strengths and weaknesses
+
+    Format your response as valid JSON with these exact keys:
+    {{
+
             "years_experience": number,
             "key_skills": ["skill1", "skill2", ...],
             "hidden_skills": ["hidden_skill1", "hidden_skill2", ...],
@@ -57,46 +43,23 @@ class WatsonResumeAnalyzer:
             "relevance_score": number,
             "category": "Highly Qualified|Qualified|Not a Fit",
             "summary": "brief summary text"
-        }}
-        """
-        
-        try:
-            # Create session
-            session_response = self.assistant.create_session(
-                assistant_id=self.project_id
-            )
-            session_id = session_response.get_result()['session_id']
-            
-            # Send message to Watson
-            response = self.assistant.message(
-                assistant_id=self.project_id,
-                session_id=session_id,
-                input={
-                    'message_type': 'text',
-                    'text': prompt,
-                    'options': {
-                        'return_context': True
-                    }
-                }
-            )
-            
-            # Get the response
-            result = response.get_result()
-            assistant_response = result['output']['generic'][0]['text']
-            
-            # Parse the JSON response
-            analysis_result = json.loads(assistant_response)
-            
-            # Clean up session
-            self.assistant.delete_session(
-                assistant_id=self.project_id,
-                session_id=session_id
-            )
-            
-            return analysis_result
-            
-        except Exception as e:
-            raise Exception(f"Watson analysis failed: {str(e)}")
+    }}
+    """
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.2,
+            max_tokens=1000
+        )
+        assistant_response = response.choices[0].message.content
+        analysis_result = json.loads(assistant_response)
+        return analysis_result
+    except Exception as e:
+        raise Exception(f"OpenAI analysis failed: {str(e)}")
 
 # Chatbot interaction for candidate-specific queries
 def chat_with_watson(message, candidate_id=None):
